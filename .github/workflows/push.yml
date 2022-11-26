@@ -1,0 +1,16 @@
+on: push
+name: CI
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: Bogdanp/setup-racket@v1.9
+      with:
+        architecture: 'x64'
+        distribution: 'full'
+        variant: 'CS'
+        version: '8.7'
+    - run: git lfs pull
+    - run: raco pkg install --auto --batch lz4-lib/ lz4-test/ lz4/
+    - run: raco test lz4-test/
