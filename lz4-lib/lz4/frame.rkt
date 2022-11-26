@@ -8,7 +8,6 @@
          "common.rkt")
 
 (provide
- read-frame
  read-frame!)
 
 (define max-preload-block-size
@@ -16,11 +15,6 @@
 
 (define end-mark
   (bytes #x00 #x00 #x00 #x00))
-
-(define (read-frame in)
-  (define buf (make-buffer))
-  (read-frame! buf in)
-  (get-buffer-bytes buf))
 
 (define (read-frame! buf in)
   (define magic-number

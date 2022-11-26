@@ -1,10 +1,16 @@
 #lang racket/base
 
-(require file/lz4/frame
+(require file/lz4/buffer
+         file/lz4/frame
          racket/runtime-path
          rackunit)
 
 (define-runtime-path examples "examples")
+
+(define (read-frame in)
+  (define buf (make-buffer))
+  (read-frame! buf in)
+  (get-buffer-bytes buf))
 
 (define (read-frame/file path)
   (call-with-input-file path read-frame))

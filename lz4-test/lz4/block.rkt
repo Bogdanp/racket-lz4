@@ -1,13 +1,14 @@
 #lang racket/base
 
 (require file/lz4/block
+         file/lz4/buffer
          (submod file/lz4/block private)
          rackunit)
 
-(define (read-length* bs)
-  (define-values (len _)
-    (read-token (open-input-bytes bs)))
-  len)
+(define (read-block in)
+  (define buf (make-buffer))
+  (read-block! buf in)
+  (get-buffer-bytes buf))
 
 (define (read-sequence* bs)
   (read-sequence (open-input-bytes bs)))
@@ -15,15 +16,6 @@
 (define block-tests
   (test-suite
    "block"
-
-   (test-suite
-    "token"
-
-    (check-equal? (read-length* (bytes #x10)) 1)
-    (check-equal? (read-length* (bytes #xE0)) 14)
-    (check-equal? (read-length* (bytes #xF0 #x00)) 15)
-    (check-equal? (read-length* (bytes #xF0 #x21)) 48)
-    (check-equal? (read-length* (bytes #xF0 #xFF #x0A)) 280))
 
    (test-suite
     "sequence"
