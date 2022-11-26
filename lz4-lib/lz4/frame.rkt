@@ -11,6 +11,9 @@
  read-frame
  read-frame!)
 
+(define max-preload-block-size
+  (* 10 1024 1024))
+
 (define end-mark
   (bytes #x00 #x00 #x00 #x00))
 
@@ -37,7 +40,9 @@
          (define block-size
            (bitwise-and block-size+flag #x7FFFFFFF))
          (define limited-in
-           (make-limited-input-port in block-size #f))
+           (if (< block-size max-preload-block-size)
+               (open-input-bytes (read-bytes block-size in))
+               (make-limited-input-port in block-size #f)))
          (if compressed?
              (read-block! buf limited-in)
              (buffer-write! buf (expect-bytes 'read-frame "literal block" block-size limited-in)))

@@ -1,5 +1,7 @@
 #lang racket/base
 
+(#%declare #:unsafe)
+
 (provide
  buffer?
  make-buffer
