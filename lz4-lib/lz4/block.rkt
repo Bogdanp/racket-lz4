@@ -12,11 +12,6 @@
 (provide
  read-block!)
 
-(module+ private
-  (provide
-   (struct-out sequence)
-   read-sequence))
-
 (define (read-block! buf in)
   (let loop ([pos (buffer-pos buf)])
     (match-define (sequence literals offset matchlen)
@@ -48,7 +43,7 @@
   (define token
     (expect-byte 'read-token "token" in))
   (define len
-    (read-length* "sequence length" (fxrshift token 4) in))
+    (read-length "sequence length" (fxrshift token 4) in))
   (define literals
     (expect-bytes 'read-sequence "literals" len in))
   (define offset-bs
@@ -63,16 +58,16 @@
      (when (fx= offset 0)
        (error 'read-sequence "corrupted block: zero offset"))
      (define matchlen
-       (fx+ (read-length* "match length" (fxand token #x0F) in) 4))
+       (fx+ (read-length "match length" (fxand token #x0F) in) 4))
      (sequence literals offset matchlen)]))
 
 (define (read-length what len in)
+  (if (fx< len 15) len (read-length* what len in)))
+
+(define (read-length* what len in)
   (let loop ([n len])
     (define b
       (expect-byte 'read-length what in))
     (if (fx< b 255)
         (fx+ n b)
         (loop (fx+ n b)))))
-
-(define (read-length* what len in)
-  (if (fx< len 15) len (read-length what len in)))

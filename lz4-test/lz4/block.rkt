@@ -2,7 +2,6 @@
 
 (require file/lz4/block
          file/lz4/buffer
-         (submod file/lz4/block private)
          rackunit)
 
 (define (read-block in)
@@ -10,22 +9,9 @@
   (read-block! buf in)
   (get-buffer-bytes buf))
 
-(define (read-sequence* bs)
-  (read-sequence (open-input-bytes bs)))
-
 (define block-tests
   (test-suite
    "block"
-
-   (test-suite
-    "sequence"
-
-    (check-equal?
-     (read-sequence* (bytes #x00))
-     (sequence #"" #f #f))
-    (check-equal?
-     (read-sequence* (bytes #x50 65 66 67 68 69))
-     (sequence #"ABCDE" #f #f)))
 
    (test-suite
     "block"
