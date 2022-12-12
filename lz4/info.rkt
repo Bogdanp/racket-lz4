@@ -1,5 +1,6 @@
 #lang info
 
+(define license 'BSD-3-Clause)
 (define implies '("lz4-lib"))
 (define collection "lz4")
 (define deps '("base"
