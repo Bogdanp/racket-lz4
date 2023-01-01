@@ -3,4 +3,4 @@
 (define license 'BSD-3-Clause)
 (define collection "file")
 (define deps '("base"))
-(define version "1.0")
+(define version "1.1")
