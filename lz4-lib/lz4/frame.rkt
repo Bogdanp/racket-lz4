@@ -11,6 +11,9 @@
 (define end-mark
   (bytes #x00 #x00 #x00 #x00))
 
+(define dependent-block-max-offset
+  #xFFFF)
+
 (define (read-frame! in out)
   (define buf (make-buffer (* 4 1024 1024)))
   (define tmp (make-bytes (* 16 1024 1024)))
@@ -18,9 +21,9 @@
     (read-integer 'frame "magic number" in))
   (cond
     [(= magic-number #x184D2204)
-     (define-values (_block-independence? block-checksum? _content-size content-checksum?)
+     (define-values (block-independence? block-checksum? _content-size content-checksum?)
        (read-frame-descriptor in))
-     (let loop ()
+     (let loop ([lo 0])
        (define block-size-bs
          (expect-bytes 'frame "block size" 4 in))
        (unless (bytes=? block-size-bs end-mark)
@@ -35,16 +38,27 @@
                (make-bytes block-size)
                tmp))
          (expect-bytes! 'read-frame "block" block-bs block-size in)
-         (cond
-           [compressed?
-            (read-block! buf block-bs block-size)
-            (copy-buffer out buf)
-            (buffer-reset! buf)]
-           [else
-            (write-bytes block-bs out 0 block-size)])
          (when block-checksum?
            (void (expect-bytes 'read-frame "block checksum" 4 in)))
-         (loop)))
+         (loop
+          (cond
+            [compressed?
+             (read-block! buf block-bs block-size)
+             (copy-buffer out buf lo)
+             (cond
+               [block-independence?
+                (begin0 0
+                  (buffer-reset! buf))]
+               [else
+                (define pos
+                  (buffer-pos buf))
+                (if (> pos dependent-block-max-offset)
+                    (begin0 dependent-block-max-offset
+                      (buffer-reset-keeping-last! buf dependent-block-max-offset))
+                    pos)])]
+            [else
+             (begin0 lo
+               (write-bytes block-bs out 0 block-size))]))))
      (when content-checksum?
        (void (expect-bytes 'read-frame "content checksum" 4 in)))]
     [(and (>= magic-number #x184D2A50)

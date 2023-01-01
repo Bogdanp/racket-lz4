@@ -29,7 +29,15 @@
     #"test test test test test test\n")
    (check-equal?
     (subbytes (read-frame/file (build-path examples "king-james.lz4")) 0 51)
-    #"The Project Gutenberg eBook of The King James Bible")))
+    #"The Project Gutenberg eBook of The King James Bible")
+   (test-case "block-dependency"
+     (let ([bs (read-frame/file (build-path examples "king-james.bd.lz4"))])
+       (check-equal?
+        (subbytes bs 0 51)
+        #"The Project Gutenberg eBook of The King James Bible")
+       (check-equal?
+        (subbytes bs (- (bytes-length bs) 60))
+        #"subscribe to our email newsletter to hear about new eBooks.\n")))))
 
 (module+ test
   (require rackunit/text-ui)

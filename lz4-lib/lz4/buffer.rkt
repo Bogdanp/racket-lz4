@@ -12,6 +12,7 @@
  buffer-str
  buffer-pos
  buffer-reset!
+ buffer-reset-keeping-last!
  buffer-write!
  buffer-copy!
  get-buffer-bytes
@@ -30,6 +31,11 @@
 
 (define (buffer-reset! b)
   (set-buffer-pos! b 0))
+
+(define (buffer-reset-keeping-last! b n)
+  (match-define (buffer buf pos) b)
+  (bytes-copy! buf 0 buf (fx- pos n) pos)
+  (set-buffer-pos! b n))
 
 (define (buffer-write! b bs [lo 0] [hi (unsafe-bytes-length bs)])
   (match-define (buffer buf pos) b)
@@ -56,6 +62,6 @@
   (unsafe-bytes-copy! dst 0 src 0 pos)
   (set-buffer-str! b dst))
 
-(define (copy-buffer dst b)
+(define (copy-buffer dst b [lo 0] [hi #f])
   (match-define (buffer buf pos) b)
-  (write-bytes buf dst 0 pos))
+  (write-bytes buf dst lo (or hi pos)))
