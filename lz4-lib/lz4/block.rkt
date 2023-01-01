@@ -5,69 +5,55 @@
 (#%declare #:unsafe)
 
 (require racket/fixnum
-         racket/match
-         "buffer.rkt"
-         "common.rkt")
+         racket/unsafe/ops
+         "buffer.rkt")
 
 (provide
  read-block!)
 
-(define (read-block! buf in)
-  (let loop ([pos (buffer-pos buf)])
-    (match-define (sequence literals offset matchlen)
-      (read-sequence in))
-    (define pos* (fx+ pos (bytes-length literals)))
-    (buffer-write! buf literals)
-    (when (and offset matchlen)
-      (let match-loop ([pos* pos*] [matchlen matchlen])
-        (define lo (fx- pos* offset))
-        (define hi (fx+ lo matchlen))
+(define (read-block! buf bs)
+  (define bs-len
+    (unsafe-bytes-length bs))
+  (let loop ([src-pos 0]
+             [dst-pos (buffer-pos buf)])
+    (define token (unsafe-bytes-ref bs src-pos))
+    (define-values (literals-len literals-pos)
+      (read-length (fxrshift token 4) bs (fx+ src-pos 1)))
+    (define offset-pos (fx+ literals-pos literals-len))
+    (when (fx> offset-pos literals-pos)
+      (buffer-write! buf bs literals-pos offset-pos))
+    (when (< offset-pos bs-len)
+      (define offset
+        (fxior (unsafe-bytes-ref bs offset-pos)
+               (fxlshift (unsafe-bytes-ref bs (fx+ offset-pos 1)) 8)))
+      (when (fx= offset 0)
+        (error 'read-block "corrupted block: zero offset"))
+      (define-values (match-len next-src-pos)
+        (read-length (fxand token #x0F) bs (fx+ offset-pos 2)))
+      (let match-loop ([dst-pos (fx+ dst-pos literals-len)]
+                       [match-len (fx+ match-len 4)])
+        (define lo (fx- dst-pos offset))
+        (define hi (fx+ lo match-len))
         (when (fx< lo 0)
           (error 'read-block "invalid offset"))
         (cond
-          [(fx> hi pos*)
-           (define len (fx- pos* lo))
-           (define matchlen* (fx- matchlen len))
-           (buffer-write! buf (buffer-str buf) lo pos*)
-           (if (fx= matchlen* 0)
-               (loop (fx+ pos* len))
-               (match-loop (fx+ pos* len) matchlen*))]
+          [(fx> hi dst-pos)
+           (define len (fx- dst-pos lo))
+           (define match-len* (fx- match-len len))
+           (buffer-copy! buf buf lo dst-pos)
+           (if (fx= match-len* 0)
+               (loop next-src-pos (fx+ dst-pos len))
+               (match-loop (fx+ dst-pos len) match-len*))]
           [else
-           (buffer-write! buf (buffer-str buf) lo hi)
-           (loop (fx+ pos* matchlen))])))))
+           (buffer-copy! buf buf lo hi)
+           (loop next-src-pos (fx+ dst-pos match-len))])))))
 
-(struct sequence (literals offset matchlen)
-  #:transparent)
-
-(define (read-sequence in)
-  (define token
-    (expect-byte 'read-token "token" in))
-  (define len
-    (read-length "sequence length" (fxrshift token 4) in))
-  (define literals
-    (expect-bytes 'read-sequence "literals" len in))
-  (define offset-bs
-    (read-bytes 2 in))
-  (cond
-    [(eof-object? offset-bs)
-     (sequence literals #f #f)]
-    [else
-     (define offset
-       (fx+ (bytes-ref offset-bs 0)
-            (fxlshift (bytes-ref offset-bs 1) 8)))
-     (when (fx= offset 0)
-       (error 'read-sequence "corrupted block: zero offset"))
-     (define matchlen
-       (fx+ (read-length "match length" (fxand token #x0F) in) 4))
-     (sequence literals offset matchlen)]))
-
-(define (read-length what len in)
-  (if (fx< len 15) len (read-length* what len in)))
-
-(define (read-length* what len in)
-  (let loop ([n len])
-    (define b
-      (expect-byte 'read-length what in))
-    (if (fx< b 255)
-        (fx+ n b)
-        (loop (fx+ n b)))))
+(define (read-length len bs pos)
+  (if (fx< len 15)
+      (values len pos)
+      (let loop ([n len]
+                 [p pos])
+        (define b (unsafe-bytes-ref bs p))
+        ((if (fx< b 255) values loop)
+         (fx+ n b)
+         (fx+ p 1)))))
