@@ -3,8 +3,7 @@
 ;; https://github.com/lz4/lz4/blob/8a31e6402df11c1bf8fbb1db3b29ec2c76fe6f26/doc/lz4_Frame_format.md
 
 (require "block.rkt"
-         "buffer.rkt"
-         "common.rkt")
+         "buffer.rkt")
 
 (provide
  read-frame!)
@@ -14,6 +13,7 @@
 
 (define (read-frame! in out)
   (define buf (make-buffer (* 4 1024 1024)))
+  (define tmp (make-bytes (* 16 1024 1024)))
   (define magic-number
     (read-integer 'frame "magic number" in))
   (cond
@@ -31,14 +31,17 @@
          (define block-size
            (bitwise-and block-size+flag #x7FFFFFFF))
          (define block-bs
-           (expect-bytes 'read-frame "block data" block-size in))
+           (if (> block-size (bytes-length tmp))
+               (make-bytes block-size)
+               tmp))
+         (expect-bytes! 'read-frame "block" block-bs block-size in)
          (cond
            [compressed?
-            (read-block! buf block-bs)
+            (read-block! buf block-bs block-size)
             (copy-buffer out buf)
             (buffer-reset! buf)]
            [else
-            (write-bytes block-bs out)])
+            (write-bytes block-bs out 0 block-size)])
          (when block-checksum?
            (void (expect-bytes 'read-frame "block checksum" 4 in)))
          (loop)))
@@ -86,3 +89,23 @@
 
 (define (on? bits mask)
   (= (bitwise-and bits mask) mask))
+
+(define (expect-bytes! who what dst amt in)
+  (define n-read
+    (read-bytes! dst in 0 amt))
+  (begin0 n-read
+    (unless (equal? n-read amt)
+      (error who "unexpected EOF while reading ~a" what))))
+
+(define (expect-byte who what in)
+  (define b (read-byte in))
+  (begin0 b
+    (when (eof-object? b)
+      (error who "unexpected EOF while reading ~a" what))))
+
+(define (expect-bytes who what amt in)
+  (define bs (read-bytes amt in))
+  (begin0 bs
+    (when (or (eof-object? bs)
+              (< (bytes-length bs) amt))
+      (error who "unexpected EOF while reading ~a" what))))

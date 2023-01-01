@@ -11,9 +11,7 @@
 (provide
  read-block!)
 
-(define (read-block! buf bs)
-  (define bs-len
-    (unsafe-bytes-length bs))
+(define (read-block! buf bs [bs-len (unsafe-bytes-length bs)])
   (let loop ([src-pos 0]
              [dst-pos (buffer-pos buf)])
     (define token (unsafe-bytes-ref bs src-pos))
