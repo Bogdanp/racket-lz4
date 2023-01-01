@@ -2,6 +2,8 @@
 
 (#%declare #:unsafe)
 
+(require racket/fixnum)
+
 (provide
  buffer?
  make-buffer
@@ -9,6 +11,7 @@
  buffer-pos
  buffer-reset!
  buffer-write!
+ buffer-copy!
  get-buffer-bytes
  copy-buffer)
 
@@ -31,22 +34,27 @@
   (define buf (buffer-str b))
   (define pos (buffer-pos b))
   (define cap (bytes-length buf))
-  (define len (- hi lo))
+  (define len (fx- hi lo))
   (cond
-    [(> len (- cap pos))
+    [(fx> len (fx- cap pos))
      (increase-cap! b len)
      (buffer-write! b bs lo hi)]
     [else
      (bytes-copy! buf pos bs lo hi)
-     (set-buffer-pos! b (+ pos len))]))
+     (set-buffer-pos! b (fx+ pos len))]))
+
+(define (buffer-copy! dst src)
+  (define buf (buffer-str src))
+  (define pos (buffer-pos src))
+  (buffer-write! dst buf 0 pos))
 
 (define (increase-cap! b amt)
   (define pos (buffer-pos b))
   (define src (buffer-str b))
   (define dst
     (make-bytes
-     (+ (bytes-length src)
-        (max amt 65535))))
+     (fx+ (bytes-length src)
+          (fxmax amt 65535))))
   (bytes-copy! dst 0 src 0 pos)
   (set-buffer-str! b dst))
 
