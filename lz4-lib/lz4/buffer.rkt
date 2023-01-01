@@ -2,7 +2,9 @@
 
 (#%declare #:unsafe)
 
-(require racket/fixnum)
+(require racket/fixnum
+         racket/match
+         racket/unsafe/ops)
 
 (provide
  buffer?
@@ -23,42 +25,37 @@
   (buffer (make-bytes cap) 0))
 
 (define (get-buffer-bytes b)
-  (define buf (buffer-str b))
-  (define pos (buffer-pos b))
+  (match-define (buffer buf pos) b)
   (subbytes buf 0 pos))
 
 (define (buffer-reset! b)
   (set-buffer-pos! b 0))
 
-(define (buffer-write! b bs [lo 0] [hi (bytes-length bs)])
-  (define buf (buffer-str b))
-  (define pos (buffer-pos b))
-  (define cap (bytes-length buf))
+(define (buffer-write! b bs [lo 0] [hi (unsafe-bytes-length bs)])
+  (match-define (buffer buf pos) b)
+  (define cap (unsafe-bytes-length buf))
   (define len (fx- hi lo))
   (cond
     [(fx> len (fx- cap pos))
      (increase-cap! b len)
      (buffer-write! b bs lo hi)]
     [else
-     (bytes-copy! buf pos bs lo hi)
+     (unsafe-bytes-copy! buf pos bs lo hi)
      (set-buffer-pos! b (fx+ pos len))]))
 
-(define (buffer-copy! dst src)
-  (define buf (buffer-str src))
-  (define pos (buffer-pos src))
-  (buffer-write! dst buf 0 pos))
+(define (buffer-copy! dst src [lo 0] [hi #f])
+  (match-define (buffer src-buf src-pos) src)
+  (buffer-write! dst src-buf lo (or hi src-pos)))
 
 (define (increase-cap! b amt)
-  (define pos (buffer-pos b))
-  (define src (buffer-str b))
+  (match-define (buffer src pos) b)
   (define dst
     (make-bytes
-     (fx+ (bytes-length src)
+     (fx+ (unsafe-bytes-length src)
           (fxmax amt 65535))))
-  (bytes-copy! dst 0 src 0 pos)
+  (unsafe-bytes-copy! dst 0 src 0 pos)
   (set-buffer-str! b dst))
 
 (define (copy-buffer dst b)
-  (define buf (buffer-str b))
-  (define pos (buffer-pos b))
+  (match-define (buffer buf pos) b)
   (write-bytes buf dst 0 pos))
