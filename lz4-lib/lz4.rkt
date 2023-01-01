@@ -7,10 +7,7 @@
  lz4-decompress-through-ports)
 
 (define (lz4-decompress-through-ports in out)
-  (define buf (make-buffer))
   (let loop ()
-    (read-frame! buf in)
-    (copy-buffer out buf)
+    (read-frame! in out)
     (unless (eof-object? (peek-byte in))
-      (buffer-reset! buf)
       (loop))))

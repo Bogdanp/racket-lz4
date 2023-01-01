@@ -2,21 +2,18 @@
 
 ;; https://github.com/lz4/lz4/blob/8a31e6402df11c1bf8fbb1db3b29ec2c76fe6f26/doc/lz4_Frame_format.md
 
-(require racket/port
-         "block.rkt"
+(require "block.rkt"
          "buffer.rkt"
          "common.rkt")
 
 (provide
  read-frame!)
 
-(define max-preload-block-size
-  (* 10 1024 1024))
-
 (define end-mark
   (bytes #x00 #x00 #x00 #x00))
 
-(define (read-frame! buf in)
+(define (read-frame! in out)
+  (define buf (make-buffer (* 4 1024 1024)))
   (define magic-number
     (read-integer 'frame "magic number" in))
   (cond
@@ -33,13 +30,15 @@
            (zero? (bitwise-and block-size+flag #x80000000)))
          (define block-size
            (bitwise-and block-size+flag #x7FFFFFFF))
-         (define limited-in
-           (if (< block-size max-preload-block-size)
-               (open-input-bytes (read-bytes block-size in))
-               (make-limited-input-port in block-size #f)))
-         (if compressed?
-             (read-block! buf limited-in)
-             (buffer-write! buf (expect-bytes 'read-frame "literal block" block-size limited-in)))
+         (define block-bs
+           (expect-bytes 'read-frame "block data" block-size in))
+         (cond
+           [compressed?
+            (read-block! buf block-bs)
+            (copy-buffer out buf)
+            (buffer-reset! buf)]
+           [else
+            (write-bytes block-bs out)])
          (when block-checksum?
            (void (expect-bytes 'read-frame "block checksum" 4 in)))
          (loop)))
