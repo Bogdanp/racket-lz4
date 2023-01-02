@@ -1,7 +1,6 @@
 #lang racket/base
 
-(require "lz4/buffer.rkt"
-         "lz4/frame.rkt")
+(require "lz4/frame.rkt")
 
 (provide
  lz4-decompress-through-ports)

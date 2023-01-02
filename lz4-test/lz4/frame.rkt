@@ -8,7 +8,7 @@
 
 (define (read-frame in)
   (define out (open-output-bytes))
-  (read-frame! in out)
+  (read-frame! in out #:validate-content-checksum? #t)
   (get-output-bytes out))
 
 (define (read-frame/file path)

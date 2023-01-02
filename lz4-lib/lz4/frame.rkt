@@ -2,7 +2,8 @@
 
 ;; https://github.com/lz4/lz4/blob/8a31e6402df11c1bf8fbb1db3b29ec2c76fe6f26/doc/lz4_Frame_format.md
 
-(require "block.rkt"
+(require (submod file/xxhash32 unsafe)
+         "block.rkt"
          "buffer.rkt")
 
 (provide
@@ -14,7 +15,8 @@
 (define dependent-block-max-offset
   #xFFFF)
 
-(define (read-frame! in out)
+(define (read-frame! in out #:validate-content-checksum? [vcc? #f])
+  (define h (and vcc? (make-xxh32)))
   (define buf (make-buffer (* 4 1024 1024)))
   (define tmp (make-bytes (* 16 1024 1024)))
   (define magic-number
@@ -40,27 +42,38 @@
          (expect-bytes! 'read-frame "block" block-bs block-size in)
          (when block-checksum?
            (void (expect-bytes 'read-frame "block checksum" 4 in)))
+         (cond
+           [compressed?
+            (read-block! buf block-bs block-size)
+            (when (and vcc? content-checksum?)
+              (xxh32-update! h (buffer-str buf) lo (buffer-pos buf)))
+            (copy-buffer out buf lo)]
+           [else
+            (unless block-independence?
+              (buffer-write! buf block-bs 0 block-size))
+            (when (and vcc? content-checksum?)
+              (xxh32-update! h block-bs 0 block-size))
+            (write-bytes block-bs out 0 block-size)])
          (loop
           (cond
-            [compressed?
-             (read-block! buf block-bs block-size)
-             (copy-buffer out buf lo)
-             (cond
-               [block-independence?
-                (begin0 0
-                  (buffer-reset! buf))]
-               [else
-                (define pos
-                  (buffer-pos buf))
-                (if (> pos dependent-block-max-offset)
-                    (begin0 dependent-block-max-offset
-                      (buffer-reset-keeping-last! buf dependent-block-max-offset))
-                    pos)])]
+            [block-independence?
+             (begin0 0
+               (buffer-reset! buf))]
             [else
-             (begin0 lo
-               (write-bytes block-bs out 0 block-size))]))))
+             (define pos
+               (buffer-pos buf))
+             (if (> pos dependent-block-max-offset)
+                 (begin0 dependent-block-max-offset
+                   (buffer-reset-keeping-last! buf dependent-block-max-offset))
+                 pos)]))))
      (when content-checksum?
-       (void (expect-bytes 'read-frame "content checksum" 4 in)))]
+       (define checksum
+         (integer-bytes->integer (expect-bytes 'read-frame "content checksum" 4 in) #f #f))
+       (when vcc?
+         (define digest
+           (xxh32-digest h))
+         (unless (= digest checksum)
+           (error 'read-frame "checksums differ~n  have: ~a~n  expected: ~a" digest checksum))))]
     [(and (>= magic-number #x184D2A50)
           (<= magic-number #x184D2A5F))
      (define frame-size
