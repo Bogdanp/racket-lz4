@@ -7,6 +7,7 @@
                      racket/require-transform)
          racket/contract
          racket/match
+         racket/performance-hint
          racket/require
          racket/unsafe/ops
          (filtered-in
@@ -124,57 +125,74 @@
 
 (define (xxh32-digest h)
   (match-define (xxh32 len acc1 acc2 acc3 acc4 tmp tmpsize) h)
-  (define h32
+  (define acc
     (uint32+
      (if (>= len 16)
-         (uint32+
-          (uint32+
-           (uint32+ (uint32rotl acc1 1)
-                    (uint32rotl acc2 7))
-           (uint32rotl acc3 12))
-          (uint32rotl acc4 18))
+         (~> (uint32+
+              (uint32rotl acc1 1)
+              (uint32rotl acc2 7))
+             (uint32+
+              (uint32rotl acc3 12))
+             (uint32+
+              (uint32rotl acc4 18)))
          (uint32+ acc3 prime5))
      len))
-  (xxh32-finalize h32 tmp tmpsize))
+  (xxh32-finalize acc tmp tmpsize))
 
 
 ;; help ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (xxh32-round acc bs lo)
-  (uint32* (uint32rotl (uint32+ acc (uint32* (uint32 bs lo) prime2)) 13) prime1))
+(define-syntax (~> stx)
+  (syntax-case stx ()
+    [(_ (rator rand ...))
+     #'(rator rand ...)]
+    [(_ (rator0 rand0 ...) (rator rand ...) . rest)
+     #'(~> (rator (rator0 rand0 ...) rand ...) . rest)]))
 
-(define (xxh32-finalize acc bs len)
-  (let-values ([(acc pos) (xxh32-finalize-1 acc bs 0 len)])
-    (let* ([acc (xxh32-finalize-2 acc bs pos len)]
-           [acc (uint32xor acc (uint32shr acc 15))]
-           [acc (uint32* acc prime2)]
-           [acc (uint32xor acc (uint32shr acc 13))]
-           [acc (uint32* acc prime3)]
-           [acc (uint32xor acc (uint32shr acc 16))])
-      acc)))
+(begin-encourage-inline
+  (define (xxh32-round acc bs lo)
+    (~> (uint32 bs lo)
+        (uint32* prime2)
+        (uint32+ acc)
+        (uint32rotl 13)
+        (uint32* prime1)))
 
-(define (xxh32-finalize-1 acc bs pos len)
-  (let loop ([acc acc]
-             [pos pos]
-             [len len])
-    (cond
-      [(>= len 4)
-       (define n (uint32 bs pos))
-       (define acc* (uint32* (uint32rotl (uint32+ acc (uint32* n prime3)) 17) prime4))
-       (loop acc* (fx+ pos 4) (fx- len 4))]
-      [else
-       (values acc pos)])))
+  (define (xxh32-finalize acc bs len)
+    (let-values ([(acc pos) (xxh32-finalize-1 acc bs 0 len)])
+      (let* ([acc (xxh32-finalize-2 acc bs pos len)]
+             [acc (uint32xor acc (uint32shr acc 15))]
+             [acc (uint32* acc prime2)]
+             [acc (uint32xor acc (uint32shr acc 13))]
+             [acc (uint32* acc prime3)]
+             [acc (uint32xor acc (uint32shr acc 16))])
+        acc)))
 
-(define (xxh32-finalize-2 acc bs pos len)
-  (let loop ([acc acc]
-             [pos pos]
-             [len (- len pos)])
-    (cond
-      [(< len 1) acc]
-      [else
-       (define n (unsafe-bytes-ref bs pos))
-       (define acc* (uint32* (uint32rotl (uint32+ acc (uint32* n prime5)) 11) prime1))
-       (loop acc* (fx+ pos 1) (fx- len 1))])))
+  (define (xxh32-finalize-1 acc bs pos len)
+    (let loop ([acc acc]
+               [pos pos]
+               [len len])
+      (if (fx>= len 4)
+          (loop
+           (~> (uint32 bs pos)
+               (uint32* prime3)
+               (uint32+ acc)
+               (uint32rotl 17)
+               (uint32* prime4))
+           (fx+ pos 4)
+           (fx- len 4))
+          (values acc pos))))
 
-
-;; math ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  (define (xxh32-finalize-2 acc bs pos len)
+    (let loop ([acc acc]
+               [pos pos]
+               [len (- len pos)])
+      (if (fx> len 0)
+          (loop
+           (~> (unsafe-bytes-ref bs pos)
+               (uint32* prime5)
+               (uint32+ acc)
+               (uint32rotl 11)
+               (uint32* prime1))
+           (fx+ pos 1)
+           (fx- len 1))
+          acc))))
