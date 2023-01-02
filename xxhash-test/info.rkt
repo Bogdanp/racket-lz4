@@ -4,5 +4,6 @@
 (define collection "tests")
 (define deps '("base"
                "xxhash-lib"
+               "rackcheck-lib"
                "rackunit-lib"))
 (define implies '("xxhash-lib"))
