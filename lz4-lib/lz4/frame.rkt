@@ -15,8 +15,8 @@
 (define dependent-block-max-offset
   #xFFFF)
 
-(define (read-frame! in out #:validate-content-checksum? [vcc? #f])
-  (define h (and vcc? (make-xxh32)))
+(define (read-frame! in out #:validate-content? [validate-content? #f])
+  (define h (and validate-content? (make-xxh32)))
   (define buf (make-buffer (* 4 1024 1024)))
   (define tmp (make-bytes (* 16 1024 1024)))
   (define magic-number
@@ -45,13 +45,13 @@
          (cond
            [compressed?
             (read-block! buf block-bs block-size)
-            (when (and vcc? content-checksum?)
+            (when (and validate-content? content-checksum?)
               (xxh32-update! h (buffer-str buf) lo (buffer-pos buf)))
             (copy-buffer out buf lo)]
            [else
             (unless block-independence?
               (buffer-write! buf block-bs 0 block-size))
-            (when (and vcc? content-checksum?)
+            (when (and validate-content? content-checksum?)
               (xxh32-update! h block-bs 0 block-size))
             (write-bytes block-bs out 0 block-size)])
          (loop
@@ -69,7 +69,7 @@
      (when content-checksum?
        (define checksum
          (integer-bytes->integer (expect-bytes 'read-frame "content checksum" 4 in) #f #f))
-       (when vcc?
+       (when validate-content?
          (define digest
            (xxh32-digest h))
          (unless (= digest checksum)

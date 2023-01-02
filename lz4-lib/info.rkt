@@ -4,4 +4,4 @@
 (define collection "file")
 (define deps '("base"
                "xxhash-lib"))
-(define version "1.3")
+(define version "1.4")

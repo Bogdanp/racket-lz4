@@ -11,14 +11,18 @@ in accordance with the LZ4 frame@cite{LZ4_FRAME} and
 block@cite{LZ4_BLOCK} formats.
 
 @defproc[(lz4-decompress-through-ports [in  input-port?]
-                                       [out output-port?]) void?]{
+                                       [out output-port?]
+                                       [#:validate-content? validate-content? boolean? #f]) void?]{
 
   Reads LZ4-compressed frames from @racket[in] and writes the
   uncompressed data to @racket[out].  If the compressed data is
   corrupted or contains unsupported features, raises an
   @racket[exn:fail] error.
 
-  Checksums are not verified.  Do not decompress untrusted input.
+  Content checksums are verified when @racket[validate-content?] is
+  @racket[#t].
+
+  @history[#:changed "1.4" @elem{Added the @racket[#:validate-content?] argument.}]
 }
 
 @bibliography[

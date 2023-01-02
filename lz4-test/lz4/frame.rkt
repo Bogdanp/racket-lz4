@@ -1,15 +1,16 @@
 #lang racket/base
 
 (require file/lz4/frame
+         racket/port
          racket/runtime-path
          rackunit)
 
 (define-runtime-path examples "examples")
 
 (define (read-frame in)
-  (define out (open-output-bytes))
-  (read-frame! in out #:validate-content-checksum? #t)
-  (get-output-bytes out))
+  (call-with-output-bytes
+   (lambda (out)
+     (read-frame! in out #:validate-content? #t))))
 
 (define (read-frame/file path)
   (call-with-input-file path read-frame))
