@@ -1,6 +1,8 @@
 #lang racket/base
 
-(require file/xxhash32
+(require ffi/unsafe
+         file/xxhash32
+         rackcheck
          rackunit)
 
 (define-check (check-digest bs expected)
@@ -16,6 +18,7 @@
 (check-digest #"12" #xd43589af)
 (check-digest #"123" #xb6855437)
 (check-digest #"1234" #x1543429)
+(check-digest #"abcd" #xa3643705)
 (check-digest #"12345" #xb30d56b4)
 (check-digest #"123456" #xb7014066)
 (check-digest #"1234567" #xdd8d554e)
@@ -65,3 +68,18 @@
   (check-equal? (xxh32-digest h) #x576e3cf9)
   (xxh32-update! h #"1")
   (check-equal? (xxh32-digest h) #x82d80129))
+
+(define oracle-lib
+  (ffi-lib "/opt/local/lib/libxxhash.dylib" #:fail (λ () #f)))
+(when oracle-lib
+  (define oracle
+    (get-ffi-obj "XXH32" oracle-lib (_fun _bytes _size _uint32 -> _uint32)))
+  (check-equal?
+   (oracle #"hello" 5 0)
+   (xxhash32 #"hello"))
+  (check-property
+   (property ([bs (gen:bytes)]
+              [seed (gen:integer-in 0 #x7FFFFFFF)])
+     (check-equal?
+      (oracle bs (bytes-length bs) seed)
+      (xxhash32 bs seed)))))
