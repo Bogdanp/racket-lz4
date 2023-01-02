@@ -6,15 +6,15 @@
 
 (provide
  (contract-out
-  [xxhash32 (->* (bytes?) ((integer-in 0 #xFFFFFFFF)) exact-nonnegative-integer?)]
+  [xxhash32 (->* (bytes?) (u32/c) u32/c)]
   [xxh32? (-> any/c boolean?)]
-  [make-xxh32 (->* () ((integer-in 0 #xFFFFFFFF)) xxh32?)]
-  [xxh32-reset! (-> xxh32? (integer-in 0 #xFFFFFFFF) void?)]
+  [make-xxh32 (->* () (u32/c) xxh32?)]
+  [xxh32-reset! (-> xxh32? u32/c void?)]
   [xxh32-update! (->* (xxh32? bytes?)
                       (exact-nonnegative-integer?
                        exact-nonnegative-integer?)
                       void?)]
-  [xxh32-digest (-> xxh32? exact-nonnegative-integer?)]))
+  [xxh32-digest (-> xxh32? u32/c)]))
 
 (module+ unsafe
   (provide
@@ -26,6 +26,7 @@
 (struct xxh32 (len acc1 acc2 acc3 acc4 tmp tmpsize)
   #:mutable)
 
+(define u32/c (integer-in 0 #xFFFFFFFF))
 (define u32max #xFFFFFFFF)
 (define u32max+1 (add1 u32max))
 
