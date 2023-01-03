@@ -81,8 +81,8 @@
   (set-xxh32-tmpsize! h 0))
 
 (define (xxh32-update! h bs [start 0] [end (unsafe-bytes-length bs)])
-  (define bs-len (- end start))
-  (when (> bs-len 0)
+  (define bs-len (fx- end start))
+  (when (fx> bs-len 0)
     (match-define (xxh32 len acc1 acc2 acc3 acc4 tmp tmpsize) h)
     (set-xxh32-len! h (fx+ len bs-len))
     (cond
@@ -98,8 +98,8 @@
          (set-xxh32-acc2! h (xxh32-round acc2 tmp  4))
          (set-xxh32-acc3! h (xxh32-round acc3 tmp  8))
          (set-xxh32-acc4! h (xxh32-round acc4 tmp 12))
-         (set! lo off)
-         (set-xxh32-tmpsize! h 0))
+         (set-xxh32-tmpsize! h 0)
+         (set! lo off))
        (define limit
          (fx- end 16))
        (let loop ([acc1 (xxh32-acc1 h)]
