@@ -17,8 +17,8 @@
 
 (define (read-frame! in out #:validate-content? [validate-content? #f])
   (define h (and validate-content? (make-xxh32)))
-  (define buf (make-buffer (* 4 1024 1024)))
-  (define tmp (make-bytes (* 16 1024 1024)))
+  (define buf (make-buffer (* 4 1024)))
+  (define tmp (make-bytes (* 64 1024)))
   (define magic-number
     (read-integer 'frame "magic number" in))
   (cond
