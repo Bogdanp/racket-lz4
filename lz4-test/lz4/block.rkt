@@ -4,9 +4,9 @@
          file/lz4/buffer
          rackunit)
 
-(define (read-block in)
+(define (read-block bs)
   (define buf (make-buffer))
-  (read-block! buf in)
+  (read-block! buf bs)
   (get-buffer-bytes buf))
 
 (define block-tests
@@ -14,7 +14,7 @@
    "block"
 
    (test-suite
-    "block"
+    "read-block"
 
     (check-equal?
      (read-block (bytes #x00))
@@ -48,7 +48,22 @@
                         #x50 ;; token
                         #x62 #x63 #x61 #x62 #x0a ;; literal
                         ))
-     #"abcabcabcabcabcabcabcabcabcab\n"))))
+     #"abcabcabcabcabcabcabcabcabcab\n")
+
+    (test-suite
+     "validation"
+
+     (check-exn
+      #rx"index out of bounds"
+      (λ () (read-block (bytes))))
+     (check-exn
+      #rx"index out of bounds"
+      (λ () (read-block (bytes #x3f
+                               #x61 #x62 #x63
+                               #x05 #x00))))
+     (check-exn
+      #rx"range out of bounds"
+      (λ () (read-block (bytes #x3f))))))))
 
 (module+ test
   (require rackunit/text-ui)
