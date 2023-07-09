@@ -7,4 +7,4 @@
                "lz4-lib"))
 (define build-deps '("racket-doc"
                      "scribble-lib"))
-(define scribblings '(("lz4-manual.scrbl")))
+(define scribblings '(("lz4-manual.scrbl" () ("Compression and Decompression"))))

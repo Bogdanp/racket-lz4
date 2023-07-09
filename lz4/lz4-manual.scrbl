@@ -7,7 +7,7 @@
 @defmodule[file/lz4]
 
 This module provides a pure-Racket decompressor for LZ4-compressed
-in accordance with the LZ4 frame@cite{LZ4_FRAME} and
+data in accordance with the LZ4 frame@cite{LZ4_FRAME} and
 block@cite{LZ4_BLOCK} formats.
 
 @defproc[(lz4-decompress-through-ports [in  input-port?]
